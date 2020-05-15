@@ -2,6 +2,11 @@
 import urllib.request
 import json
 from html.parser import HTMLParser
+from sqlalchemy import Table, Column, MetaData, types, create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import ForeignKey
+import os
 
 
 class MyHTMLParser(HTMLParser):
@@ -12,6 +17,62 @@ class MyHTMLParser(HTMLParser):
 
     def handle_data(self, data):
         print("Encountered some data  :", data)
+
+
+test = {"def fun():": {"value": "1", "print(": "'test',value)"}}
+with open("DataDynam.py", "w", encoding="utf-8") as f:
+    json.dump(test, f, ensure_ascii=False, indent=4)
+jPython = ""
+with open("DataDynam.py", "r", encoding="utf-8") as f:
+    jPython = (
+        f.read()
+        .replace("{", "")
+        .replace("}", "")
+        .replace("        ", "\t")
+        .replace("    ", "")
+        .replace('(":', "(")
+        .replace(':":', "@")
+        .replace(":", "=")
+        .replace("@", ":")
+        .replace('"', "")
+        .replace(",\n", "\n")
+    )
+with open("DataDynam.py", "w", encoding="utf-8") as f:
+    f.write(jPython)
+
+import DataDynam
+
+DataDynam.fun()
+
+input("stopper")
+# class LolItemSQLRow(base):
+#     # Names the report and defines the SQL Table
+#     __tablename__ = "items"
+#     data_id = Column(types.INTEGER, primary_key=True)
+#     item_id = Column(types.INTEGER)
+#     name = Column(types.VARCHAR)
+#     description = Column(types.VARCHAR)
+#     colloq = Column(types.VARCHAR)
+#     plaintext = Column(types.VARCHAR)
+#     into = Column(types.VARCHAR)
+#     image = Column(types.VARCHAR)
+#     gold = Column(types.VARCHAR)
+#     tags = Column(types.VARCHAR)
+#     maps = Column(types.VARCHAR)
+#     stats = Column(types.VARCHAR)
+#     from = Column(types.VARCHAR)
+#     depth = Column(types.VARCHAR)
+#     effect = Column(types.VARCHAR)
+#     hideFromAll = Column(types.VARCHAR)
+#     stacks = Column(types.VARCHAR)
+#     consumed = Column(types.VARCHAR)
+#     inStore = Column(types.VARCHAR)
+#     consumeOnFull = Column(types.VARCHAR)
+#     specialRecipe = Column(types.VARCHAR)
+#     requiredChampion = Column(types.VARCHAR)
+#     requiredAlly = Column(types.VARCHAR)
+#     group = Column(types.VARCHAR)
+#     altimages = Column(types.VARCHAR)
 
 
 # API documents
@@ -32,9 +93,9 @@ versionX = ""
 UniqueItemKeys = {}
 AllData = {}
 versions_count = 0
+
 for version in version_data:
     try:
-        # version: lolpatch_3.7 had an error
         itemData = get_api(
             f"https://ddragon.leagueoflegends.com/cdn/{version}/data/en_US/item.json"
         )
@@ -47,8 +108,8 @@ for version in version_data:
         versions_count += 1
     except Exception as e:
         print("Had error on version: {0} with error: {1}", version, e)
-with open("item_data.json", "w", encoding="utf-8") as f:
-    json.dump(AllData, f, ensure_ascii=False, indent=4)
+# with open("item_data.json", "w", encoding="utf-8") as f:
+#     json.dump(AllData, f, ensure_ascii=False, indent=4)
 print(UniqueItemKeys)
 print(versions_count)
 
