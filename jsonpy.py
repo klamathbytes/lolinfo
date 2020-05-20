@@ -7,19 +7,26 @@ def pywrite(jsonpy):
         json.dump(jsonpy, f, ensure_ascii=False, indent=4)
     pyjson = ""
     with open("dynampy.py", "r", encoding="utf-8") as f:
+        content = f.read()
+        print(content)
         pyjson = (
-            f.read()
+            content.replace('= ": {', '= ":#~')
             .replace("{", "")
             .replace("}", "")
             .replace("        ", "\t")
-            .replace("    ", "")
-            # .replace('(":', "(")
+            .replace("    ", "~")
+            .replace("\t~", "\t\t")
+            .replace("~", "")
+            .replace('(":', "(")
             .replace(':":', "@")
             .replace(":", "")
             .replace("@", ":")
             .replace('"', "")
             .replace("'", '"')
             .replace(",\n", "\n")
+            .replace(";", ",")
+            .replace("#~", "{")
+            .replace("~#", "}")
         )
         print(pyjson)
     with open("dynampy.py", "w", encoding="utf-8") as f:
@@ -27,4 +34,4 @@ def pywrite(jsonpy):
 
     import dynampy
 
-    dynampy.run()
+    return dynampy.run()
