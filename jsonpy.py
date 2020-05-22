@@ -21,6 +21,7 @@ def pywrite(jsonpy):
             .replace(':":', "@")
             .replace(":", "")
             .replace("@", ":")
+            .replace("#/#", "@")
             .replace('"', "")
             .replace("'", '"')
             .replace(",\n", "\n")

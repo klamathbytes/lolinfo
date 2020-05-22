@@ -2,7 +2,16 @@
 from sqlalchemy import Table, Column, MetaData, types, create_engine 
 from sqlalchemy.ext.declarative import declarative_base 
 from sqlalchemy.orm import sessionmaker 
+import json 
+import configparser 
+#------- 
+config = configparser.ConfigParser() 
+config.read(".env") 
+pg_url = config["postgres"]["PGURL"] 
+db_string = pg_url 
+postgres_engine = create_engine(db_string) 
 base = declarative_base() 
+base.metadata.create_all(postgres_engine) 
 class SQLRow(base): 
 	__tablename__ = "items" 
 	data_id = Column(types.INTEGER, primary_key=True) 
@@ -30,7 +39,7 @@ class SQLRow(base):
 	item_requiredChampion = Column(types.VARCHAR) 
 	item_requiredAlly = Column(types.VARCHAR) 
 	item_group = Column(types.VARCHAR) 
-	item_altimages = Column(types.VARCHAR) 
+	item_altimages = Column(types.JSON) 
 
 def run(): 
 	loaded_sql_row = SQLRow() 
@@ -42,77 +51,102 @@ def DataBuilder(key,sql_row,data):
 	
 	elif key in "item_version": 
 		sql_row.item_version = data 
-	
-	elif key in "item_altimages": 
-		sql_row.item_altimages = data 
+		return sql_row 
 	
 	elif key in "item_item": 
 		sql_row.item_item = data 
+		return sql_row 
 	
 	elif key in "item_name": 
 		sql_row.item_name = data 
+		return sql_row 
 	
 	elif key in "item_description": 
 		sql_row.item_description = data 
+		return sql_row 
 	
 	elif key in "item_colloq": 
 		sql_row.item_colloq = data 
+		return sql_row 
 	
 	elif key in "item_plaintext": 
 		sql_row.item_plaintext = data 
+		return sql_row 
 	
 	elif key in "item_into": 
 		sql_row.item_into = data 
+		return sql_row 
 	
 	elif key in "item_image": 
-		sql_row.item_image = data 
+		sql_row.item_image = json.dumps(data) 
+		return sql_row 
 	
 	elif key in "item_gold": 
-		sql_row.item_gold = data 
+		sql_row.item_gold = json.dumps(data) 
+		return sql_row 
 	
 	elif key in "item_tags": 
 		sql_row.item_tags = data 
+		return sql_row 
 	
 	elif key in "item_maps": 
-		sql_row.item_maps = data 
+		sql_row.item_maps = json.dumps(data) 
+		return sql_row 
 	
 	elif key in "item_stats": 
-		sql_row.item_stats = data 
+		sql_row.item_stats = json.dumps(data) 
+		return sql_row 
 	
 	elif key in "item_from": 
 		sql_row.item_from = data 
+		return sql_row 
 	
 	elif key in "item_depth": 
 		sql_row.item_depth = data 
+		return sql_row 
 	
 	elif key in "item_effect": 
-		sql_row.item_effect = data 
+		sql_row.item_effect = json.dumps(data) 
+		return sql_row 
 	
 	elif key in "item_hideFromAll": 
 		sql_row.item_hideFromAll = data 
+		return sql_row 
 	
 	elif key in "item_stacks": 
 		sql_row.item_stacks = data 
+		return sql_row 
 	
 	elif key in "item_consumed": 
 		sql_row.item_consumed = data 
+		return sql_row 
 	
 	elif key in "item_inStore": 
 		sql_row.item_inStore = data 
+		return sql_row 
 	
 	elif key in "item_consumeOnFull": 
 		sql_row.item_consumeOnFull = data 
+		return sql_row 
 	
 	elif key in "item_specialRecipe": 
 		sql_row.item_specialRecipe = data 
+		return sql_row 
 	
 	elif key in "item_requiredChampion": 
 		sql_row.item_requiredChampion = data 
+		return sql_row 
 	
 	elif key in "item_requiredAlly": 
 		sql_row.item_requiredAlly = data 
+		return sql_row 
 	
 	elif key in "item_group": 
 		sql_row.item_group = data 
+		return sql_row 
+	
+	elif key in "item_altimages": 
+		sql_row.item_altimages = json.dumps(data) 
+		return sql_row 
 	
 
