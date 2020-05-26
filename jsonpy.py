@@ -8,7 +8,7 @@ def pywrite(jsonpy):
     pyjson = ""
     with open("dynampy.py", "r", encoding="utf-8") as f:
         content = f.read()
-        print(content)
+        # print(content)
         pyjson = (
             content.replace('= ": {', '= ":#~')
             .replace("{", "")
@@ -29,7 +29,7 @@ def pywrite(jsonpy):
             .replace("#~", "{")
             .replace("~#", "}")
         )
-        print(pyjson)
+        # print(pyjson)
     with open("dynampy.py", "w", encoding="utf-8") as f:
         f.write(pyjson)
 

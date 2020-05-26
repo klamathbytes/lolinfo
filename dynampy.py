@@ -1,18 +1,11 @@
 
+#!/usr/bin/python3 
 from sqlalchemy import Table, Column, MetaData, types, create_engine 
 from sqlalchemy.ext.declarative import declarative_base 
 from sqlalchemy.orm import sessionmaker 
 import json 
-import configparser 
-#------- 
-config = configparser.ConfigParser() 
-config.read(".env") 
-pg_url = config["postgres"]["PGURL"] 
-db_string = pg_url 
-postgres_engine = create_engine(db_string) 
 base = declarative_base() 
-base.metadata.create_all(postgres_engine) 
-class SQLRow(base): 
+class SQLTable(base): 
 	__tablename__ = "items" 
 	data_id = Column(types.INTEGER, primary_key=True) 
 	item_version = Column(types.VARCHAR) 
@@ -42,8 +35,7 @@ class SQLRow(base):
 	item_altimages = Column(types.JSON) 
 
 def run(): 
-	loaded_sql_row = SQLRow() 
-	return loaded_sql_row 
+	return True 
 
 def DataBuilder(key,sql_row,data): 
 	if not key: 
@@ -149,4 +141,9 @@ def DataBuilder(key,sql_row,data):
 		sql_row.item_altimages = json.dumps(data) 
 		return sql_row 
 	
+
+def InitilizeBuilder(postgres_engine): 
+	base.metadata.create_all(postgres_engine) 
+	sql_table = SQLTable() 
+	return sql_table 
 

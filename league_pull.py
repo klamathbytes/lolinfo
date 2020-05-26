@@ -10,6 +10,8 @@ import os
 import jsonpy
 import configparser
 
+# docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' container_name_or_id
+
 
 class MyHTMLParser(HTMLParser):
     def handle_starttag(self, tag, attrs):
@@ -22,32 +24,23 @@ class MyHTMLParser(HTMLParser):
 
 
 string_jsonpy = {
+    "#!/usr/bin/python3": {},
     "from sqlalchemy import Table, Column, MetaData, types, create_engine": {},
     "from sqlalchemy.ext.declarative import declarative_base": {},
     "from sqlalchemy.orm import sessionmaker": {},
     "import json": {},
-    "import configparser": {},
-    "#-------": {},
-    "config = configparser.ConfigParser()": {},
-    "config.read('.env')": {},
-    "pg_url = config['postgres']['PGURL']": {},
-    "db_string = pg_url": {},
-    "postgres_engine = create_engine(db_string)": {},
-    "#-------": {},
     "base = declarative_base()": {},
-    "base.metadata.create_all(postgres_engine)": {},
-    "class SQLRow(base):": {
+    "class SQLTable(base):": {
         # ---- Data Rows that python will populate
         # ----
     },
-    "def run():": {
-        # ----
-        "loaded_sql_row = SQLRow()": {},
-        # "loaded_sql_row = SQLRow(": ")",
-        # ----
-        "return loaded_sql_row": {},
-    },
+    "def run():": {"return True": {},},
     "def DataBuilder(key,sql_row,data):": {},
+    "def InitilizeBuilder(postgres_engine):": {
+        "base.metadata.create_all(postgres_engine)": {},
+        "sql_table = SQLTable()": {},
+        "return sql_table": {},
+    },
 }
 
 #  = {
@@ -71,7 +64,7 @@ string_jsonpy = {
 # API documents
 # https://developer.riotgames.com/docs/lol#game-client-api_replay-api
 # versions
-url_text = f"https://ddragon.leagueoflegends.com/api/versions.json"
+url_text = "https://ddragon.leagueoflegends.com/api/versions.json"
 
 
 def get_api(url_text):
@@ -93,11 +86,15 @@ config.read(".env")
 pg_user = config["postgres"]["PGUSER"]
 pg_password = config["postgres"]["PGPASSWORD"]
 pg_database = config["postgres"]["PGDATABASE"]
+print(pg_database)
 db_string = f"postgresql://{pg_user}:{pg_password}@localhost/{pg_database}"
 postgres_engine = create_engine(db_string)
+base = declarative_base()
 databaseMetaData = MetaData(postgres_engine)
 psql_session = (sessionmaker(postgres_engine))()
-
+base.metadata.create_all(postgres_engine)
+print("made it")
+input("stop")
 
 for version in version_data:
     try:
@@ -105,7 +102,7 @@ for version in version_data:
             f"https://ddragon.leagueoflegends.com/cdn/{version}/data/en_US/item.json"
         )
         # this will be build/generated automatically in the future
-        string_jsonpy["class SQLRow(base):"] = {
+        string_jsonpy["class SQLTable(base):"] = {
             "__tablename__ = 'items'": {},
             "data_id = Column(types.INTEGER, primary_key=True)": {},
             "item_version = Column(types.VARCHAR)": {},
@@ -242,25 +239,32 @@ for version in version_data:
         AllData[version] = items
         sqlRow = jsonpy.pywrite(string_jsonpy)
         for item, data in items.items():
-            sqlRow = jsonpy.pywrite(string_jsonpy)
+            dynampySuccess = jsonpy.pywrite(string_jsonpy)
+            # input("stoper 253")
             # jpy_SQL_params = f"loaded_sql_row = SQLRow(item = {item}"
             for key in data.keys():
-
+                # input("stoper 256")
                 value = data[key]
                 import dynampy
 
+                sqlRow = dynampy.InitilizeBuilder(postgres_engine)
                 sqlRow = dynampy.DataBuilder(key, sqlRow, value)
+                # input("stoper 260")
                 # 2 Lines below, is to determine the keys and data types
                 # UniqueItemKeys[key] = 1
                 # UniqueItemSqlTypes[key] = type(data[key])
                 data_type = type(data[key])
                 # jpy_SQL_params = jpy_SQL_params + f", {key} = {data_type}({value})"
+            # input("stoper 265")
+            sqlRow.item_item = item
+            sqlRow.item_version = version
             psql_session.add(sqlRow)
             psql_session.commit()
             # string_jsonpy["def run():"]["loaded_sql_row = SQLRow()"] = (
             #    jpy_SQL_params + ")"
             # )
         versions_count += 1
+
     except Exception as e:
         print("Had error on version: {0} with error: {1}", version, e)
 # with open("item_data.json", "w", encoding="utf-8") as f:
