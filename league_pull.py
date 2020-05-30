@@ -74,6 +74,14 @@ def get_api(url_text):
     return json.loads(data.decode(encoding))
 
 
+def get_unique_keys(unique_json, key, data):
+    data_type = type(data[key])
+    if unique_json[key][data_type]:
+        unique_json[key][data_type] = 1
+    else:
+        unique_json[key][data_type] += 1
+
+
 version_data = get_api(url_text)
 versionX = ""
 UniqueItemKeys = {}
@@ -86,17 +94,29 @@ config.read(".env")
 pg_user = config["postgres"]["PGUSER"]
 pg_password = config["postgres"]["PGPASSWORD"]
 pg_database = config["postgres"]["PGDATABASE"]
-print(pg_database)
 db_string = f"postgresql://{pg_user}:{pg_password}@localhost/{pg_database}"
-postgres_engine = create_engine(db_string)
-base = declarative_base()
-databaseMetaData = MetaData(postgres_engine)
-psql_session = (sessionmaker(postgres_engine))()
-base.metadata.create_all(postgres_engine)
-print("made it")
-input("stop")
-
+# postgres_engine = create_engine(db_string)
+# base = declarative_base()
+# databaseMetaData = MetaData(postgres_engine)
+# psql_session = (sessionmaker(postgres_engine))()
+# base.metadata.create_all(postgres_engine)
+# runes, https://ddragon.leagueoflegends.com/cdn/10.11.1/data/en_US/runesReforged.json
 for version in version_data:
+    try:
+        champion_data = get_api(
+            f"https://ddragon.leagueoflegends.com/cdn/{version}/data/en_US/champion.json"
+        )
+        champion_data = json.loads(json.dumps(champion_data["data"]))
+        # AllData[version] = champion_data
+        for champion_id, data in champion_data.items():
+            print(champion_id)
+            champion_detail_data = get_api(
+                f"https://ddragon.leagueoflegends.com/cdn/{version}/data/en_US/champion/{champion_id}.json"
+            )
+        input("stopper")
+    except Exception as e:
+        print("Had error on version: {0} with error: {1}", version, e)
+
     try:
         itemData = get_api(
             f"https://ddragon.leagueoflegends.com/cdn/{version}/data/en_US/item.json"
@@ -241,19 +261,16 @@ for version in version_data:
         for item, data in items.items():
             dynampySuccess = jsonpy.pywrite(string_jsonpy)
             # input("stoper 253")
-            # jpy_SQL_params = f"loaded_sql_row = SQLRow(item = {item}"
             for key in data.keys():
                 # input("stoper 256")
                 value = data[key]
+                UniqueItemKeys = get_unique_keys(UniqueItemKeys, key, data)
                 import dynampy
 
                 sqlRow = dynampy.InitilizeBuilder(postgres_engine)
                 sqlRow = dynampy.DataBuilder(key, sqlRow, value)
                 # input("stoper 260")
-                # 2 Lines below, is to determine the keys and data types
-                # UniqueItemKeys[key] = 1
-                # UniqueItemSqlTypes[key] = type(data[key])
-                data_type = type(data[key])
+                # data_type = type(data[key])
                 # jpy_SQL_params = jpy_SQL_params + f", {key} = {data_type}({value})"
             # input("stoper 265")
             sqlRow.item_item = item
