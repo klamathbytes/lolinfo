@@ -75,11 +75,33 @@ def get_api(url_text):
 
 
 def get_unique_keys(unique_json, key, data):
-    data_type = type(data[key])
-    if unique_json[key][data_type]:
-        unique_json[key][data_type] = 1
-    else:
-        unique_json[key][data_type] += 1
+    # print(unique_json, key, data)
+    data_type = str(type(data[key]))
+    # input("80")
+    # if "description" in key:
+    #     # input("stopper")
+    #     print(data[key], data_type, isinstance(data[key], str), "</" in data[key])
+    try:
+        if (unique_json[key][data_type] or unique_json[key]["HTML"]) and data != {}:
+            unique_json[key][data_type] += 1
+            # print(unique_json, key, data)
+            # input("85")
+        elif isinstance(data[key], str) and "</" in data[key]:
+            unique_json.update({f"{key}": {"HTML": 1}})
+    except TypeError:
+        # print(unique_json, key, data)
+        # input("88")
+        unique_json.update({f"{key}": {f"{data_type}": 1}})
+    except KeyError:
+        if isinstance(data[key], str) and "</" in data[key]:
+            unique_json.update({f"{key}": {"HTML": 1}})
+        else:
+            unique_json[key] = {f"{data_type}": 1}
+        # print(unique_json, key, data)
+        # input("93")
+    finally:
+        # input("95")
+        return unique_json
 
 
 version_data = get_api(url_text)
@@ -95,27 +117,27 @@ pg_user = config["postgres"]["PGUSER"]
 pg_password = config["postgres"]["PGPASSWORD"]
 pg_database = config["postgres"]["PGDATABASE"]
 db_string = f"postgresql://{pg_user}:{pg_password}@localhost/{pg_database}"
-# postgres_engine = create_engine(db_string)
-# base = declarative_base()
-# databaseMetaData = MetaData(postgres_engine)
-# psql_session = (sessionmaker(postgres_engine))()
-# base.metadata.create_all(postgres_engine)
+postgres_engine = create_engine(db_string)
+base = declarative_base()
+databaseMetaData = MetaData(postgres_engine)
+psql_session = (sessionmaker(postgres_engine))()
+base.metadata.create_all(postgres_engine)
 # runes, https://ddragon.leagueoflegends.com/cdn/10.11.1/data/en_US/runesReforged.json
+version_data = ["10.11.1"]
 for version in version_data:
-    try:
-        champion_data = get_api(
-            f"https://ddragon.leagueoflegends.com/cdn/{version}/data/en_US/champion.json"
-        )
-        champion_data = json.loads(json.dumps(champion_data["data"]))
-        # AllData[version] = champion_data
-        for champion_id, data in champion_data.items():
-            print(champion_id)
-            champion_detail_data = get_api(
-                f"https://ddragon.leagueoflegends.com/cdn/{version}/data/en_US/champion/{champion_id}.json"
-            )
-        input("stopper")
-    except Exception as e:
-        print("Had error on version: {0} with error: {1}", version, e)
+    # try:
+    #     champion_data = get_api(
+    #         f"https://ddragon.leagueoflegends.com/cdn/{version}/data/en_US/champion.json"
+    #     )
+    #     champion_data = json.loads(json.dumps(champion_data["data"]))
+    #     # AllData[version] = champion_data
+    #     for champion_id, data in champion_data.items():
+    #         print(champion_id)
+    #         champion_detail_data = get_api(
+    #             f"https://ddragon.leagueoflegends.com/cdn/{version}/data/en_US/champion/{champion_id}.json"
+    #         )
+    # except Exception as e:
+    #     print("Had error on version: {0} with error: {1}", version, e)
 
     try:
         itemData = get_api(
@@ -256,23 +278,21 @@ for version in version_data:
             },
         }
         items = json.loads(json.dumps(itemData["data"]))
+        # print(items)
         AllData[version] = items
         sqlRow = jsonpy.pywrite(string_jsonpy)
         for item, data in items.items():
             dynampySuccess = jsonpy.pywrite(string_jsonpy)
-            # input("stoper 253")
             for key in data.keys():
                 # input("stoper 256")
                 value = data[key]
                 UniqueItemKeys = get_unique_keys(UniqueItemKeys, key, data)
                 import dynampy
 
+                # input("284")
                 sqlRow = dynampy.InitilizeBuilder(postgres_engine)
                 sqlRow = dynampy.DataBuilder(key, sqlRow, value)
-                # input("stoper 260")
-                # data_type = type(data[key])
                 # jpy_SQL_params = jpy_SQL_params + f", {key} = {data_type}({value})"
-            # input("stoper 265")
             sqlRow.item_item = item
             sqlRow.item_version = version
             psql_session.add(sqlRow)
@@ -282,10 +302,10 @@ for version in version_data:
             # )
         versions_count += 1
 
-    except Exception as e:
+    except KeyError as e:
         print("Had error on version: {0} with error: {1}", version, e)
-# with open("item_data.json", "w", encoding="utf-8") as f:
-#     json.dump(AllData, f, ensure_ascii=False, indent=4)
+with open("item_data_types.json", "w", encoding="utf-8") as f:
+    json.dump(UniqueItemKeys, f, ensure_ascii=False, indent=4)
 print(UniqueItemKeys)
 print(UniqueItemSqlTypes)
 print(versions_count)
