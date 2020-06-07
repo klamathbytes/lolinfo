@@ -9,6 +9,7 @@ from sqlalchemy import ForeignKey
 import os
 import jsonpy
 import configparser
+from collections import defaultdict
 
 # docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' container_name_or_id
 
@@ -75,33 +76,89 @@ def get_api(url_text):
 
 
 def get_unique_keys(unique_json, key, data):
-    # print(unique_json, key, data)
     data_type = str(type(data[key]))
-    # input("80")
-    # if "description" in key:
-    #     # input("stopper")
-    #     print(data[key], data_type, isinstance(data[key], str), "</" in data[key])
     try:
-        if (unique_json[key][data_type] or unique_json[key]["HTML"]) and data != {}:
-            unique_json[key][data_type] += 1
-            # print(unique_json, key, data)
-            # input("85")
-        elif isinstance(data[key], str) and "</" in data[key]:
+        if (
+            isinstance(data[key], str)
+            and "</" in data[key]
+            and not unique_json[key]["HTML"]
+        ):
             unique_json.update({f"{key}": {"HTML": 1}})
+        elif (unique_json[key][data_type] or unique_json[key]["HTML"]) and data != {}:
+            unique_json[key][data_type] += 1
     except TypeError:
-        # print(unique_json, key, data)
-        # input("88")
         unique_json.update({f"{key}": {f"{data_type}": 1}})
     except KeyError:
         if isinstance(data[key], str) and "</" in data[key]:
             unique_json.update({f"{key}": {"HTML": 1}})
         else:
             unique_json[key] = {f"{data_type}": 1}
-        # print(unique_json, key, data)
-        # input("93")
     finally:
-        # input("95")
         return unique_json
+
+
+# re-name this function to be the get all data and load or something
+# for it pulls all the data and columns, and it would be easier to just load the data
+# since all the columns we know the data structure
+def get_defined_columns(model, versions_list, suffix_api_url):
+    all_data = {}
+    defined_columns = {}
+    for version in version_data:
+        try:
+            data = get_api(
+                f"https://ddragon.leagueoflegends.com/cdn/{version}/{suffix_api_url}"
+            )
+            data = json.loads(json.dumps(data["data"]))
+            all_data[version] = data
+            for league_object, object_data in data.items():
+                for key in object_data.keys():
+                    defined_columns = get_unique_keys(defined_columns, key, object_data)
+        except urllib.error.HTTPError as e:
+            print("Had error on version: {0} with error: {1}", version, e)
+
+    for column, data_types in defined_columns.items():
+        data_types_translator = {
+            "<class 'str'>": {f"{model}_{column} = Column(types.VARCHAR)": {}},
+            "<class 'NoneType'>": {f"{model}_{column} = Column(types.VARCHAR)": {}},
+            # Would be nice to check VARCHAR or INTEGER
+            "<class 'list'>": {
+                f"{model}_{column} = Column(types.ARRAY(types.VARCHAR))": {}
+            },
+            "<class 'dict'>": {f"{model}_{column} = Column(types.JSON)": {}},
+            "<class 'float'>": {f"{model}_{column} = Column(types.DECIMAL)": {}},
+            "<class 'bool'>": {f"{model}_{column} = Column(types.BOOLEAN)": {}},
+            # Need to break out the HTML tags and pull data from it?
+            "HTML": {f"{model}_{column} = Column(types.VARCHAR)": {}},
+            "<class 'int'>": {f"{model}_{column} = Column(types.INTEGER)": {}},
+        }
+        value_sectors = defaultdict(lambda: "data")
+        value_sectors["<class 'dict'>"] = "json.dumps(data)"
+        string_jsonpy["class SQLTable(base):"].update(
+            {
+                f"__tablename__ = '{model}'": {},
+                "data_id = Column(types.INTEGER, primary_key=True)": {},
+                f"{model}_version = Column(types.VARCHAR)": {},
+                # Below would only work for the "item" model
+                f"{model}_item = Column(types.INTEGER)": {},
+            }
+        )
+        string_jsonpy["def DataBuilder(key,sql_row,data):"].update(
+            {"if not key:": {"return sql_row": {}},}
+        )
+        for atype, occurances in data_types.items():
+            string_jsonpy["class SQLTable(base):"].update(data_types_translator[atype])
+            value = value_sectors[atype]
+            string_jsonpy["def DataBuilder(key,sql_row,data):"].update(
+                {
+                    f"elif key in '{model}_{column}':": {
+                        f"sql_row.{model}_{column} = {value}": {},
+                        "return sql_row": {},
+                    }
+                },
+            )
+
+    json.dumps(defined_columns)
+    print(json.dumps(string_jsonpy))
 
 
 version_data = get_api(url_text)
@@ -123,160 +180,34 @@ databaseMetaData = MetaData(postgres_engine)
 psql_session = (sessionmaker(postgres_engine))()
 base.metadata.create_all(postgres_engine)
 # runes, https://ddragon.leagueoflegends.com/cdn/10.11.1/data/en_US/runesReforged.json
-version_data = ["10.11.1"]
+# version_data = ["10.11.1"]
+sql_rows_collection = []
+
+# Test was successful of "get_defined_columns"
+# ------------------------------
+test = get_defined_columns("item", version_data, "data/en_US/item.json")
+input("stopper")
+# ------------------------------
+###############################
 for version in version_data:
-    # try:
-    #     champion_data = get_api(
-    #         f"https://ddragon.leagueoflegends.com/cdn/{version}/data/en_US/champion.json"
-    #     )
-    #     champion_data = json.loads(json.dumps(champion_data["data"]))
-    #     # AllData[version] = champion_data
-    #     for champion_id, data in champion_data.items():
-    #         print(champion_id)
-    #         champion_detail_data = get_api(
-    #             f"https://ddragon.leagueoflegends.com/cdn/{version}/data/en_US/champion/{champion_id}.json"
-    #         )
-    # except Exception as e:
-    #     print("Had error on version: {0} with error: {1}", version, e)
+    try:
+        champion_data = get_api(
+            f"https://ddragon.leagueoflegends.com/cdn/{version}/data/en_US/champion.json"
+        )
+        champion_data = json.loads(json.dumps(champion_data["data"]))
+        # AllData[version] = champion_data
+        for champion_id, data in champion_data.items():
+            print(champion_id)
+            champion_detail_data = get_api(
+                f"https://ddragon.leagueoflegends.com/cdn/{version}/data/en_US/champion/{champion_id}.json"
+            )
+    except Exception as e:
+        print("Had error on version: {0} with error: {1}", version, e)
 
     try:
         itemData = get_api(
             f"https://ddragon.leagueoflegends.com/cdn/{version}/data/en_US/item.json"
         )
-        # this will be build/generated automatically in the future
-        string_jsonpy["class SQLTable(base):"] = {
-            "__tablename__ = 'items'": {},
-            "data_id = Column(types.INTEGER, primary_key=True)": {},
-            "item_version = Column(types.VARCHAR)": {},
-            "item_item = Column(types.INTEGER)": {},
-            "item_name = Column(types.VARCHAR)": {},
-            "item_description = Column(types.VARCHAR)": {},
-            "item_colloq = Column(types.VARCHAR)": {},
-            "item_plaintext = Column(types.VARCHAR)": {},
-            "item_into = Column(types.ARRAY(types.INTEGER))": {},
-            "item_image = Column(types.JSON)": {},
-            "item_gold = Column(types.JSON)": {},
-            "item_tags = Column(types.ARRAY(types.VARCHAR))": {},
-            "item_maps = Column(types.JSON)": {},
-            "item_stats = Column(types.JSON)": {},
-            "item_from = Column(types.ARRAY(types.INTEGER))": {},
-            "item_depth = Column(types.INTEGER)": {},
-            "item_effect = Column(types.JSON)": {},
-            "item_hideFromAll = Column(types.BOOLEAN)": {},
-            "item_stacks = Column(types.DECIMAL)": {},
-            "item_consumed = Column(types.BOOLEAN)": {},
-            "item_inStore = Column(types.BOOLEAN)": {},
-            "item_consumeOnFull = Column(types.BOOLEAN)": {},
-            "item_specialRecipe = Column(types.DECIMAL)": {},
-            "item_requiredChampion = Column(types.VARCHAR)": {},
-            "item_requiredAlly = Column(types.VARCHAR)": {},
-            "item_group = Column(types.VARCHAR)": {},
-            "item_altimages = Column(types.JSON)": {},
-        }
-        # this will be build/generated automatically in the future
-        string_jsonpy["def DataBuilder(key,sql_row,data):"] = {
-            "if not key:": {"return sql_row": {}},
-            "elif key in 'item_version':": {
-                "sql_row.item_version = data": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_item':": {
-                "sql_row.item_item = data": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_name':": {
-                "sql_row.item_name = data": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_description':": {
-                "sql_row.item_description = data": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_colloq':": {
-                "sql_row.item_colloq = data": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_plaintext':": {
-                "sql_row.item_plaintext = data": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_into':": {
-                "sql_row.item_into = data": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_image':": {
-                "sql_row.item_image = json.dumps(data)": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_gold':": {
-                "sql_row.item_gold = json.dumps(data)": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_tags':": {
-                "sql_row.item_tags = data": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_maps':": {
-                "sql_row.item_maps = json.dumps(data)": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_stats':": {
-                "sql_row.item_stats = json.dumps(data)": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_from':": {
-                "sql_row.item_from = data": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_depth':": {
-                "sql_row.item_depth = data": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_effect':": {
-                "sql_row.item_effect = json.dumps(data)": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_hideFromAll':": {
-                "sql_row.item_hideFromAll = data": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_stacks':": {
-                "sql_row.item_stacks = data": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_consumed':": {
-                "sql_row.item_consumed = data": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_inStore':": {
-                "sql_row.item_inStore = data": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_consumeOnFull':": {
-                "sql_row.item_consumeOnFull = data": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_specialRecipe':": {
-                "sql_row.item_specialRecipe = data": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_requiredChampion':": {
-                "sql_row.item_requiredChampion = data": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_requiredAlly':": {
-                "sql_row.item_requiredAlly = data": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_group':": {
-                "sql_row.item_group = data": {},
-                "return sql_row": {},
-            },
-            "elif key in 'item_altimages':": {
-                "sql_row.item_altimages = json.dumps(data)": {},
-                "return sql_row": {},
-            },
-        }
         items = json.loads(json.dumps(itemData["data"]))
         # print(items)
         AllData[version] = items
